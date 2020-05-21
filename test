@@ -1,0 +1,54 @@
+참고 : https://developer.apple.com/library/archive/documentation/General/Conceptual/AppSearch/index.html#//apple_ref/doc/uid/TP40016308-CH4-SW1
+
+와디즈 스타트업 찾기 서비스에 Spotlight 기능을 추가했습니다.
+앱 내 검색기능이 있지만, 편의성을 증가시키기 위해 search API를 사용해보았습니다.
+
+2가지 단계가 필요합니다.
+1. 검색 아이템 등록
+2. 검색시 처리
+
+### 1. 검색 아이템 등록
+검색될 제목, 설명등을 설정할 수 있습니다.
+설정 후 CSSearchableItem 에 식별값과 정보를 입력해줍니다.
+스타트업 찾기 서비스의 경우, 기업명, 서비스카테고리를 입력해주고, 기업번호를 식별값으로 설정 해주었습니다.
+실제 검색가능한 아이템이 인덱싱되는 시점은 사용자가 기업의 상세페이지를 방문했을 때 입니다.
+사용자가 한번 기업을 방문하면 기업의 상세페이지가 인뎅식되고, 2번째 부터는 "와디즈"(기업명) 나 "스타트업찾기" 의 키워드로 Spotlight에서 검색할 수 있습니다.
+```
+private func indexItem(title: String, desc: String, identifier: String) {
+        let attributeSet = CSSearchableItemAttributeSet(itemContentType: kUTTypeText as String)
+        attributeSet.title = title
+        attributeSet.contentDescription = desc
+
+        let item = CSSearchableItem(uniqueIdentifier: "\(identifier)", domainIdentifier: static.domain , attributeSet: attributeSet)
+        CSSearchableIndex.default().indexSearchableItems([item]) { error in
+            if let error = error {
+                print("Indexing error: \(error.localizedDescription)")
+            } else {
+                print("Search item successfully indexed!")
+            }
+        }
+    }
+```
+CoreSpotlight 프레임워크를 사용할 때는 주의해야 할 점이 있습니다.
+CoreSpotlight 으로 인덱싱한 아이템은 on-device 인덱스입니다. 개인 폰에서 사용하는 Spotlight에서만 검색 할 수 있게 만들어 줄 뿐입니다.
+모든 유저가 검색했을 때 나오게 하려면 NSUserActivity를 사용해야 합니다.
+
+### 2. 검색시 처리
+검색 가능한 아이템을 기업이름과 서비스 카테고리로 만들었기 때문에 두 가지 방법으로 검색이 가능합니다.
+검색 후 기대하는 앱 내 진입 포인트는 해당 기업의 상세페이지입니다.
+검색 아이템의 식별값을 기업번호로 사용했기 때문에, 검색 결과후 받아오는 기업 번호를 이용해서 기업 상세페이지를 띄워줍니다.
+Spotlight에서 검색한 아이템을 클릭해 앱 내부로 들어올 때 AppDelegate 내부의 메소드에 전달합니다.
+```
+func application(application: UIApplication, continueUserActivity userActivity: NSUserActivity, restorationHandler: ([AnyObject]?) -> Void) -> Bool
+```
+
+```
+func application(application: UIApplication, continueUserActivity userActivity: NSUserActivity, restorationHandler: ([AnyObject]?) -> Void) -> Bool {
+  if userActivity.activityType == CSSearchableItemActionType {
+    if let uniqueIdentifier = userActivity.userInfo?[CSSearchableItemActivityIdentifier] as? String {
+      // call app view
+    }
+    return true
+  }
+
+}```
